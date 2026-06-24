@@ -1,0 +1,36 @@
+services:
+  fraud-hunter:
+    build: .
+    container_name: fraud-hunter
+    ports:
+      - "8000:8000"
+    environment:
+      # SQLite por omissão — zero configuração para testar
+      DATABASE_URL: "sqlite:////app/data/fraud_hunter.db"
+      AUTH_DISABLED: "false"
+      APP_NAME: "Fraud Hunter"
+    volumes:
+      # persistência da base de dados entre reinícios
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # ----------------------------------------------------------------------
+  # PRODUÇÃO (opcional): trocar para PostgreSQL.
+  # 1) descomentar o serviço 'db'
+  # 2) no serviço acima, mudar DATABASE_URL para:
+  #    postgresql+psycopg://fh:fh@db:5432/fraudhunter
+  # 3) adicionar 'psycopg[binary]' ao requirements.txt
+  # ----------------------------------------------------------------------
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     POSTGRES_USER: fh
+  #     POSTGRES_PASSWORD: fh
+  #     POSTGRES_DB: fraudhunter
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+# volumes:
+#   pgdata:

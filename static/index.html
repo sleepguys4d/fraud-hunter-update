@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="pt">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>FRAUD HUNTER — Plataforma Antifraude · HIDEN Engine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Share+Tech+Mono&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+:root{
+  --void:#04090c; --void2:#070f14; --panel:#0a151b; --panel2:#0d1b22;
+  --line:#13303a; --line2:#1c4450;
+  --cyan:#00e5ff; --cyan-dim:#0a7d8c;
+  --ink:#cfe9ef; --ink-dim:#6f9aa6; --ink-faint:#3f6571;
+  --green:#2be5a0; --amber:#ffb020; --orange:#ff7a1a; --red:#ff3b5c; --mag:#e5468f;
+  --r-low:var(--green); --r-med:var(--amber); --r-high:var(--orange); --r-crit:var(--red);
+  --glow:0 0 18px rgba(0,229,255,.25);
+  --mono:'Share Tech Mono',ui-monospace,monospace;
+  --disp:'Orbitron',var(--mono); --body:'Inter',system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:
+    radial-gradient(1100px 700px at 78% -8%, rgba(0,229,255,.07), transparent 60%),
+    radial-gradient(900px 600px at 8% 110%, rgba(229,70,143,.05), transparent 55%),
+    var(--void);
+  color:var(--ink); font-family:var(--body); font-size:14px; line-height:1.5;
+  overflow:hidden;
+}
+/* scanlines + grid */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:9000;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.16) 2px 3px);
+  mix-blend-mode:overlay;opacity:.5}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
+  background-size:46px 46px;opacity:.10;mask:radial-gradient(140% 100% at 50% 0%,#000 50%,transparent 100%)}
+
+/* boot */
+#boot{position:fixed;inset:0;z-index:9999;background:var(--void);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:18px;transition:opacity .6s ease, visibility .6s}
+#boot.gone{opacity:0;visibility:hidden}
+.boot-logo{font-family:var(--disp);font-weight:900;font-size:30px;letter-spacing:6px;color:var(--cyan);text-shadow:var(--glow)}
+.boot-logo span{color:var(--ink)}
+.boot-bar{width:260px;height:3px;background:var(--line);overflow:hidden;border-radius:2px}
+.boot-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--cyan),var(--mag));animation:bootfill 1.5s ease forwards}
+.boot-line{font-family:var(--mono);color:var(--ink-dim);font-size:11px;letter-spacing:2px;height:14px}
+@keyframes bootfill{to{width:100%}}
+
+/* layout */
+.app{display:grid;grid-template-columns:248px 1fr;grid-template-rows:54px 1fr;height:100vh;position:relative;z-index:1}
+header{grid-column:1/3;display:flex;align-items:center;gap:18px;padding:0 18px;border-bottom:1px solid var(--line2);
+  background:linear-gradient(180deg,rgba(10,21,27,.96),rgba(7,15,20,.92));backdrop-filter:blur(6px)}
+.brand{display:flex;align-items:center;gap:11px}
+.scope{width:26px;height:26px;position:relative;flex:0 0 auto}
+.scope::before,.scope::after{content:"";position:absolute;background:var(--cyan)}
+.scope::before{left:50%;top:1px;bottom:1px;width:1.5px;transform:translateX(-50%);box-shadow:var(--glow)}
+.scope::after{top:50%;left:1px;right:1px;height:1.5px;transform:translateY(-50%);box-shadow:var(--glow)}
+.scope b{position:absolute;inset:3px;border:1.5px solid var(--cyan);border-radius:50%;box-shadow:var(--glow)}
+.scope i{position:absolute;left:50%;top:50%;width:5px;height:5px;border-radius:50%;background:var(--red);transform:translate(-50%,-50%);box-shadow:0 0 8px var(--red)}
+.brand .t{font-family:var(--disp);font-weight:900;font-size:17px;letter-spacing:3px;color:var(--ink)}
+.brand .t em{color:var(--cyan);font-style:normal;text-shadow:var(--glow)}
+.brand .sub{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--ink-faint);margin-top:1px}
+.htop-spacer{flex:1}
+.hud-chip{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--ink-dim);border:1px solid var(--line2);padding:5px 10px;display:flex;align-items:center;gap:7px;background:rgba(0,229,255,.03)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.6s infinite}
+@keyframes pulse{50%{opacity:.35}}
+.dot.red{background:var(--red);box-shadow:0 0 8px var(--red)}
+
+nav{border-right:1px solid var(--line2);background:linear-gradient(180deg,rgba(8,16,21,.9),rgba(5,10,13,.9));overflow-y:auto;padding:12px 10px}
+.nav-cat{font-family:var(--mono);font-size:9px;letter-spacing:2.5px;color:var(--ink-faint);padding:14px 10px 7px}
+.nav-item{display:flex;align-items:center;gap:11px;padding:9px 11px;color:var(--ink-dim);cursor:pointer;font-size:13px;font-weight:500;border:1px solid transparent;border-radius:4px;position:relative;transition:.15s}
+.nav-item .ic{width:18px;text-align:center;font-family:var(--mono);font-size:13px;color:var(--ink-faint)}
+.nav-item .badge{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--void);background:var(--cyan);padding:1px 6px;border-radius:8px}
+.nav-item .badge.red{background:var(--red);color:#fff}
+.nav-item:hover{color:var(--ink);border-color:var(--line2);background:rgba(0,229,255,.04)}
+.nav-item.active{color:var(--cyan);border-color:var(--cyan-dim);background:rgba(0,229,255,.08);box-shadow:inset 2px 0 0 var(--cyan)}
+.nav-item.active .ic{color:var(--cyan)}
+
+main{overflow-y:auto;padding:22px 26px 60px}
+.view{display:none;animation:fade .35s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}}
+
+.page-head{display:flex;align-items:flex-end;gap:14px;margin-bottom:20px}
+.page-head h1{font-family:var(--disp);font-weight:700;font-size:21px;letter-spacing:2px;margin:0;color:var(--ink)}
+.page-head .meta{font-family:var(--mono);font-size:11px;color:var(--ink-faint);letter-spacing:1px;margin-bottom:3px}
+.eyebrow{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--cyan-dim);text-transform:uppercase;margin-bottom:3px}
+
+/* panel w/ HUD brackets */
+.panel{background:linear-gradient(180deg,var(--panel),var(--panel2));border:1px solid var(--line2);position:relative;padding:16px}
+.panel::before,.panel::after{content:"";position:absolute;width:10px;height:10px;border:1.5px solid var(--cyan);opacity:.6}
+.panel::before{top:-1px;left:-1px;border-right:0;border-bottom:0}
+.panel::after{bottom:-1px;right:-1px;border-left:0;border-top:0}
+.panel-h{display:flex;align-items:center;gap:9px;margin-bottom:13px}
+.panel-h h3{font-family:var(--disp);font-weight:500;font-size:12px;letter-spacing:2px;margin:0;color:var(--cyan);text-transform:uppercase}
+.panel-h .tag{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--ink-faint);letter-spacing:1px}
+
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:1fr 1fr}
+.g23{grid-template-columns:1.6fr 1fr}
+@media(max-width:1100px){.g4{grid-template-columns:repeat(2,1fr)}.g3,.g2,.g23{grid-template-columns:1fr}}
+
+/* KPI */
+.kpi{padding:15px 16px}
+.kpi .lbl{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--ink-faint);text-transform:uppercase}
+.kpi .val{font-family:var(--disp);font-weight:700;font-size:27px;margin:6px 0 2px;color:var(--ink);letter-spacing:1px}
+.kpi .val.c{color:var(--cyan)}.kpi .val.g{color:var(--green)}.kpi .val.a{color:var(--amber)}.kpi .val.r{color:var(--red)}
+.kpi .delta{font-family:var(--mono);font-size:11px;color:var(--ink-dim)}
+.kpi .delta.up{color:var(--green)}.kpi .delta.down{color:var(--red)}
+
+/* risk pills */
+.pill{font-family:var(--mono);font-size:10px;letter-spacing:1px;padding:2px 8px;border-radius:3px;border:1px solid;text-transform:uppercase;white-space:nowrap;display:inline-block}
+.p-low{color:var(--green);border-color:var(--green);background:rgba(43,229,160,.08)}
+.p-med{color:var(--amber);border-color:var(--amber);background:rgba(255,176,32,.08)}
+.p-high{color:var(--orange);border-color:var(--orange);background:rgba(255,122,26,.08)}
+.p-crit{color:var(--red);border-color:var(--red);background:rgba(255,59,92,.1)}
+.p-info{color:var(--cyan);border-color:var(--cyan-dim);background:rgba(0,229,255,.06)}
+.p-ghost{color:var(--ink-faint);border-color:var(--line2)}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--ink-faint);text-transform:uppercase;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line2)}
+td{padding:10px;border-bottom:1px solid var(--line);color:var(--ink-dim);vertical-align:middle}
+tr:hover td{background:rgba(0,229,255,.03);color:var(--ink)}
+td .mono,.mono{font-family:var(--mono)}
+.amt{font-family:var(--mono);color:var(--ink)}
+
+/* kill chain */
+.kc-wrap{position:relative;overflow:hidden}
+.kc-flow{display:flex;gap:0;align-items:stretch;position:relative;z-index:2}
+.kc-node{flex:1;min-width:0;cursor:pointer;padding:14px 10px;border:1px solid var(--line2);background:linear-gradient(180deg,var(--panel),var(--panel2));position:relative;transition:.2s}
+.kc-node:not(:last-child){border-right:0}
+.kc-node:hover{background:rgba(0,229,255,.06)}
+.kc-node.sel{border-color:var(--cyan);box-shadow:inset 0 0 22px rgba(0,229,255,.12)}
+.kc-node .n{font-family:var(--disp);font-weight:700;font-size:11px;color:var(--ink-faint)}
+.kc-node .nm{font-size:11.5px;font-weight:600;color:var(--ink);margin:7px 0 9px;min-height:30px;line-height:1.25}
+.kc-bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden}
+.kc-bar i{display:block;height:100%;border-radius:3px;transition:width .9s ease}
+.kc-node .cov{font-family:var(--mono);font-size:10px;color:var(--ink-dim);margin-top:6px;display:flex;justify-content:space-between}
+.kc-node .arrow{position:absolute;right:-7px;top:50%;transform:translateY(-50%);z-index:3;color:var(--cyan-dim);font-size:12px}
+.kc-scan{position:absolute;top:0;bottom:0;width:80px;z-index:1;background:linear-gradient(90deg,transparent,rgba(0,229,255,.14),transparent);animation:kcsweep 6s linear infinite;pointer-events:none}
+@keyframes kcsweep{from{left:-80px}to{left:100%}}
+.shiftleft{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--cyan-dim);margin-top:10px}
+.shiftleft .ar{flex:1;height:1px;background:linear-gradient(90deg,var(--cyan),transparent)}
+
+.kc-detail{margin-top:16px}
+.kc-detail h4{font-family:var(--disp);font-size:13px;letter-spacing:1px;color:var(--cyan);margin:0 0 3px}
+.kc-detail .d{color:var(--ink-dim);font-size:13px;margin-bottom:14px}
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:900px){.col2{grid-template-columns:1fr}}
+.lst{list-style:none;margin:0;padding:0}
+.lst li{padding:7px 0 7px 18px;position:relative;font-size:13px;color:var(--ink-dim);border-bottom:1px dashed var(--line)}
+.lst li::before{content:"▸";position:absolute;left:0;color:var(--cyan-dim)}
+.lst.ctrl li::before{content:"◆";color:var(--green)}
+
+/* mini section label */
+.subh{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--ink-faint);text-transform:uppercase;margin:0 0 8px}
+
+/* toggle */
+.tg{width:34px;height:18px;border-radius:10px;background:var(--line2);position:relative;cursor:pointer;flex:0 0 auto;transition:.2s}
+.tg i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--ink-faint);transition:.2s}
+.tg.on{background:rgba(43,229,160,.25)}
+.tg.on i{left:18px;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+/* network */
+#net{width:100%;height:430px;display:block}
+.net-legend{display:flex;gap:16px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-top:10px}
+.net-legend span{display:flex;align-items:center;gap:6px}
+.net-legend i{width:10px;height:10px;border-radius:50%;display:inline-block}
+.node-info{font-family:var(--mono);font-size:12px;color:var(--ink-dim);min-height:40px;padding:10px;border:1px solid var(--line);background:var(--void2)}
+
+/* framework cards */
+.fw-card{padding:15px;border:1px solid var(--line2);background:linear-gradient(180deg,var(--panel),var(--panel2));position:relative}
+.fw-card .cat{font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--cyan-dim);text-transform:uppercase}
+.fw-card h4{font-family:var(--disp);font-size:13px;letter-spacing:.5px;margin:5px 0 7px;color:var(--ink)}
+.fw-card p{font-size:12.5px;color:var(--ink-dim);margin:0 0 10px}
+.fw-card .map{font-size:11.5px;color:var(--ink-faint);border-top:1px dashed var(--line);padding-top:8px}
+.fw-card .map b{color:var(--green);font-family:var(--mono);font-weight:400}
+
+/* gauge */
+.gauge{display:flex;flex-direction:column;align-items:center;gap:8px}
+.gauge svg{transform:rotate(-90deg)}
+.gauge .gv{font-family:var(--disp);font-weight:700;font-size:30px;color:var(--cyan)}
+.gauge .gl{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--ink-faint)}
+
+/* feed */
+.feed{max-height:330px;overflow-y:auto}
+.feed-item{display:flex;gap:11px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.feed-item .ts{font-family:var(--mono);font-size:10px;color:var(--ink-faint);flex:0 0 46px}
+.feed-item .bd{flex:1;font-size:12.5px;color:var(--ink-dim)}
+.feed-item .bd b{color:var(--ink);font-weight:600}
+
+.bar-row{display:flex;align-items:center;gap:10px;margin:9px 0;font-size:12px}
+.bar-row .lab{flex:0 0 130px;color:var(--ink-dim);font-size:11.5px}
+.bar-track{flex:1;height:9px;background:var(--line);border-radius:5px;overflow:hidden}
+.bar-track i{display:block;height:100%;border-radius:5px}
+.bar-row .v{font-family:var(--mono);font-size:11px;color:var(--ink-dim);flex:0 0 38px;text-align:right}
+
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:var(--void)}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--cyan-dim)}
+
+a:focus-visible,[tabindex]:focus-visible,.nav-item:focus-visible,.kc-node:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+.muted{color:var(--ink-faint)}
+.note{font-family:var(--mono);font-size:11px;color:var(--ink-faint);background:rgba(0,229,255,.03);border:1px solid var(--line);padding:9px 11px;margin-top:14px}
+.note b{color:var(--cyan)}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="boot">
+  <div class="boot-logo">FRAUD<span>·</span>HUNTER</div>
+  <div class="boot-bar"><i></i></div>
+  <div class="boot-line" id="bootLine">a inicializar motor HIDEN…</div>
+</div>
+
+<div class="app">
+  <header>
+    <div class="brand">
+      <div class="scope"><b></b><i></i></div>
+      <div>
+        <div class="t">FRAUD <em>HUNTER</em></div>
+        <div class="sub">PLATAFORMA ANTIFRAUDE · HIDEN ENGINE v1.0</div>
+      </div>
+    </div>
+    <div class="htop-spacer"></div>
+    <div class="hud-chip"><span class="dot"></span> MOTOR ATIVO</div>
+    <div class="hud-chip"><span class="dot red"></span> 7 ALERTAS CRÍTICOS</div>
+    <div class="hud-chip">SOC XPERT · LIGADO</div>
+    <div class="hud-chip">ANALISTA · S. AJAYI</div>
+  </header>
+
+  <nav id="nav"></nav>
+  <main id="main"></main>
+</div>
+
+<script>
+const NAVDEF = [
+ {cat:'OPERAÇÃO'},
+ {id:'dash',ic:'◉',name:'Command Center'},
+ {id:'kc',ic:'⛓',name:'Fraud Kill Chain'},
+ {id:'tx',ic:'⇄',name:'Transações',badge:'4'},
+ {cat:'DETEÇÃO'},
+ {id:'rules',ic:'⚙',name:'Motor de Regras'},
+ {id:'ato',ic:'⚇',name:'Account Takeover'},
+ {id:'net',ic:'❖',name:'Rede de Mulas',badge:'1',red:true},
+ {cat:'CONFORMIDADE'},
+ {id:'aml',ic:'§',name:'AML / CFT',badge:'5'},
+ {id:'cases',ic:'▤',name:'Casos'},
+ {id:'ti',ic:'◈',name:'Threat Intel'},
+ {cat:'CONHECIMENTO'},
+ {id:'fw',ic:'❑',name:'Frameworks'}
+];
+const FRAMEWORKS = [
+ {cat:'Modelo explicativo',name:'Triângulo da Fraude (Cressey)',
+  desc:'Pressão/incentivo + oportunidade + racionalização. A base para compreender o porquê da fraude.',
+  map:'Usado no scoring de risco de casos e na avaliação de risco de fraude interna.'},
+ {cat:'Modelo explicativo',name:'Diamante da Fraude (Wolfe & Hermanson)',
+  desc:'Acrescenta a capacidade — a competência e a posição necessárias para executar o esquema.',
+  map:'Dimensão "capability" nos perfis de risco de colaborador/insider.'},
+ {cat:'Modelo explicativo',name:'Pentágono da Fraude',
+  desc:'Acrescenta arrogância e competência. Aplicado sobretudo a fraude de gestão e corporativa.',
+  map:'Indicadores de tone-at-the-top na avaliação de risco corporativo.'},
+ {cat:'Governança',name:'COSO Internal Control (2013)',
+  desc:'Framework de controlo interno. O Princípio 8 exige considerar o potencial de fraude na avaliação de risco.',
+  map:'Estrutura de controlos do programa antifraude e mapeamento preventivo/detetivo.'},
+ {cat:'Governança',name:'COSO ERM (2017)',
+  desc:'Gestão de risco empresarial integrada com estratégia e desempenho.',
+  map:'Apetite de risco e tolerância aplicados aos limiares do motor de regras.'},
+ {cat:'Governança',name:'COSO/ACFE Fraud Risk Management Guide (2.ª ed.)',
+  desc:'Blueprint de referência para um programa de gestão de risco de fraude, com forte ênfase em data analytics.',
+  map:'Cinco princípios mapeados aos módulos: governança, avaliação, prevenção/deteção, investigação e monitorização.'},
+ {cat:'Taxonomia',name:'ACFE Fraud Tree',
+  desc:'Classificação da fraude ocupacional: corrupção, apropriação indevida de ativos e fraude nas demonstrações financeiras.',
+  map:'Esquema de classificação obrigatório no módulo de Casos.'},
+ {cat:'Ciclo de vida',name:'Fraud Management Lifecycle (Wilhelm)',
+  desc:'Oito fases: dissuasão, prevenção, deteção, mitigação, análise, política, investigação e persecução.',
+  map:'Estados do fluxo de trabalho do módulo de Casos.'},
+ {cat:'AML / CFT',name:'FATF — 40 Recomendações',
+  desc:'Padrão internacional de combate ao branqueamento e ao financiamento do terrorismo.',
+  map:'Base das regras AML, do KYC/CDD/EDD e do rastreio de PEPs.'},
+ {cat:'AML / CFT',name:'Modelo Placement–Layering–Integration',
+  desc:'As três fases do branqueamento de capitais.',
+  map:'Classificação dos alertas no módulo AML/CFT.'},
+ {cat:'Pagamentos',name:'PCI DSS',
+  desc:'Norma de segurança de dados de cartão de pagamento.',
+  map:'Pré-requisito de controlo para canais de cartão monitorizados.'},
+ {cat:'Pagamentos',name:'PSD2 / SCA · 3-D Secure 2.x',
+  desc:'Autenticação forte do cliente e autenticação baseada em risco no comércio eletrónico.',
+  map:'Decisão de desafio (challenge) no motor de transações.'},
+ {cat:'Cyber',name:'MITRE ATT&CK + Kill Chains',
+  desc:'Táticas e técnicas para a fase de comprometimento; kill chain para mapear interceção por fase.',
+  map:'Cobertura por fase no rastreador de Kill Chain.'},
+ {cat:'Cyber',name:'NIST CSF 2.0',
+  desc:'Govern · Identify · Protect · Detect · Respond · Recover. Chapéu do programa de segurança.',
+  map:'Alinhamento de maturidade do programa antifraude.'},
+ {cat:'Resposta',name:'Financial Fraud Kill Chain (FBI/FinCEN)',
+  desc:'Processo de recuperação de transferências fraudulentas via recall/reversão e congelamento de fundos.',
+  map:'Playbook de resposta no módulo de Casos (recall, hold-harmless, comunicação).'},
+ {cat:'Normas ISO',name:'ISO 31000 · 37001 · 27001',
+  desc:'Gestão de risco, sistemas antissuborno e segurança da informação.',
+  map:'Referência de governança e de controlos do lado do comprometimento.'},
+ {cat:'Angola',name:'Lei n.º 5/20 · UIF · BNA',
+  desc:'Enquadramento angolano de combate ao branqueamento, ao financiamento do terrorismo e à proliferação.',
+  map:'Comunicação de operações suspeitas (STR) à UIF e alinhamento com os instrutivos do BNA. Confirmar versões em vigor.'}
+];
+const ATO = [
+ {sess:'S-9F12',acc:'AO·****4471',dvc:'Android · NOVO',geo:'Maputo → Luanda',travel:'Impossível (8 min)',bio:'Anómala',mfa:'Push negada ×4',score:90},
+ {sess:'S-9F09',acc:'AO·****3302',dvc:'iOS · conhecido',geo:'Luanda',travel:'Normal',bio:'Coerente',mfa:'OK',score:22},
+ {sess:'S-9F05',acc:'AO·****6650',dvc:'Web · desconhecido',geo:'Lisboa',travel:'Atípico',bio:'Hesitação alta',mfa:'OK',score:58},
+ {sess:'S-9F01',acc:'AO·****7741',dvc:'Android · NOVO',geo:'Luanda',travel:'Normal',bio:'Bot suspeito',mfa:'SMS interc.',score:81},
+ {sess:'S-8FE7',acc:'AO·****1180',dvc:'iOS · conhecido',geo:'Benguela',travel:'Normal',bio:'Coerente',mfa:'OK',score:9}
+];
+const PEP = [
+ {ref:'PEP-0042',cat:'PEP nacional',match:'Forte',edd:'Concluída',status:'Aprovado c/ EDD'},
+ {ref:'PEP-0067',cat:'Familiar próximo de PEP',match:'Parcial',edd:'Pendente',status:'Em revisão'},
+ {ref:'PEP-0091',cat:'PEP estrangeiro',match:'Forte',edd:'Em curso',status:'Restrição ativa'}
+];
+
+/* ====================== CAMADA DE API VIVA ====================== */
+const API = '', KEY = 'fh_admin_dev_key';
+const HDRS = { 'Content-Type': 'application/json', 'X-API-Key': KEY };
+async function api(path, opts = {}) {
+  const r = await fetch(API + path, { headers: HDRS, ...opts });
+  if (!r.ok) throw new Error((await r.text()) || ('HTTP ' + r.status));
+  return r.json();
+}
+
+const KZ = n => new Intl.NumberFormat('pt-PT').format(Math.round(n || 0)) + ' Kz';
+const riskClass = s => s >= 80 ? 'p-crit' : s >= 60 ? 'p-high' : s >= 35 ? 'p-med' : 'p-low';
+const riskColor = s => s >= 80 ? 'var(--red)' : s >= 60 ? 'var(--orange)' : s >= 35 ? 'var(--amber)' : 'var(--green)';
+const riskWord  = s => s >= 80 ? 'CRÍTICO' : s >= 60 ? 'ELEVADO' : s >= 35 ? 'MÉDIO' : 'BAIXO';
+const decPT = { BLOCK: 'BLOQUEADO', REVIEW: 'REVISÃO', CHALLENGE_3DS: 'DESAFIO 3DS', APPROVE: 'APROVADO' };
+const decClass = d => d === 'BLOCK' ? 'p-crit' : d === 'REVIEW' ? 'p-high' : d === 'CHALLENGE_3DS' ? 'p-med' : 'p-low';
+const sevPill = { crit: 'p-crit', high: 'p-high', med: 'p-med' };
+const esc = s => (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const V = id => document.getElementById('v-' + id);
+const hhmm = iso => { try { return new Date(iso).toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' }); } catch (e) { return '--:--'; } };
+
+let STATE = { kc: null, net: null };
+
+/* dados estáticos que se mantêm (conhecimento/ilustrativo) */
+const ATO_SIGNALS = [
+  ['Device fingerprinting', 'Dispositivo / app / browser único por sessão', 92],
+  ['Biometria comportamental', 'Cadência, hesitação, padrão de toque', 76],
+  ['Impossible travel', 'Geovelocity entre logins', 88],
+  ['MFA · resiliência', 'Deteção de fatigue, SIM swap, interceção', 81],
+];
+const LIFE = ['Dissuasão', 'Prevenção', 'Deteção', 'Mitigação', 'Análise', 'Política', 'Investigação', 'Persecução'];
+
+const GEOS = {
+  'Luanda': [-8.84, 13.23], 'Benguela': [-12.58, 13.41], 'Lisboa': [38.72, -9.14],
+  'Maputo': [-25.97, 32.58], 'Joanesburgo': [-26.20, 28.05],
+};
+
+/* ====================== UI HELPERS ====================== */
+function gauge(pct) {
+  const r = 46, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+  return `<div class="gauge"><svg width="120" height="120" viewBox="0 0 120 120">
+    <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--line)" stroke-width="9"/>
+    <circle cx="60" cy="60" r="${r}" fill="none" stroke="var(--cyan)" stroke-width="9" stroke-linecap="round"
+      stroke-dasharray="${c}" stroke-dashoffset="${off}" style="filter:drop-shadow(0 0 6px var(--cyan))"/>
+    </svg><div class="gv">${pct}%</div><div class="gl">COBERTURA KILL CHAIN</div></div>`;
+}
+function pageHead(eyebrow, title, meta) {
+  return `<div class="page-head"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1></div>
+    ${meta ? `<div class="meta">${meta}</div>` : ''}</div>`;
+}
+function errBox(id, e) {
+  V(id).innerHTML = pageHead('Erro de ligação', TITLES[id], '') +
+    `<div class="panel"><div class="note" style="margin:0">Não foi possível contactar a API. ` +
+    `Confirme que o backend está a correr — <b>docker compose up</b> — e abra <b>http://localhost:8000</b>.<br>` +
+    `Detalhe: ${esc(e.message)}</div></div>`;
+}
+
+/* ====================== NAV ====================== */
+function buildNav() {
+  const nav = document.getElementById('nav');
+  NAVDEF.forEach(it => {
+    if (it.cat) { const d = document.createElement('div'); d.className = 'nav-cat'; d.textContent = it.cat; nav.appendChild(d); return; }
+    const el = document.createElement('div'); el.className = 'nav-item'; el.tabIndex = 0; el.dataset.view = it.id;
+    el.innerHTML = `<span class="ic">${it.ic}</span><span>${it.name}</span>` +
+      (it.badge ? `<span class="badge ${it.red ? 'red' : ''}">${it.badge}</span>` : '');
+    el.onclick = () => go(it.id);
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(it.id); } };
+    nav.appendChild(el);
+  });
+}
+function go(id) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'v-' + id));
+  const fn = LOADERS[id]; if (fn) fn();
+  document.getElementById('main').scrollTop = 0;
+}
+
+const TITLES = { dash: 'Command Center', kc: 'Fraud Kill Chain', tx: 'Monitorização de Transações',
+  rules: 'Motor de Regras', ato: 'Account Takeover', net: 'Rede de Mulas', aml: 'AML / CFT',
+  cases: 'Gestão de Casos', ti: 'Threat Intelligence', fw: 'Biblioteca de Frameworks' };
+
+/* ====================== LOADERS ====================== */
+async function loadDash() {
+  try {
+    const [d, k, tx] = await Promise.all([api('/api/dashboard'), api('/api/killchain'), api('/api/transactions?limit=8')]);
+    const kpis = [
+      { l: 'Casos ativos', v: d.cases_active, c: '', dd: d.aml_open + ' alertas AML' },
+      { l: 'Alertas (24h)', v: d.alerts_24h, c: 'a', dd: d.blocked_24h + ' bloqueios' },
+      { l: 'Perda evitada (24h)', v: KZ(d.prevented_amount).replace(' Kz', ''), c: 'g', dd: 'Kz' },
+      { l: 'Cobertura KC', v: d.coverage + '%', c: 'c', dd: d.analyzed_24h + ' tx analisadas' },
+    ];
+    const kpiHtml = kpis.map(x => `<div class="panel kpi"><div class="lbl">${x.l}</div>
+      <div class="val ${x.c}">${x.v}</div><div class="delta">${x.dd}</div></div>`).join('');
+    const feed = tx.length ? tx.map(t => `<div class="feed-item"><div class="ts">${hhmm(t.created_at)}</div>
+      <div class="bd"><b>${decPT[t.decision] || t.decision}</b> · ${esc(t.id)} — ${KZ(t.amount)}
+      ${(t.fired || []).length ? '· ' + t.fired.join(', ') : ''}</div></div>`).join('')
+      : '<div class="feed-item"><div class="bd muted">Sem transações ainda. Avalie uma no separador Transações.</div></div>';
+    const bars = k.stages.map(s => `<div class="bar-row"><div class="lab">${s.stage}. ${s.name}</div>
+      <div class="bar-track"><i style="width:${s.coverage}%;background:${s.coverage >= 80 ? 'var(--green)' : s.coverage >= 65 ? 'var(--cyan)' : 'var(--amber)'}"></i></div>
+      <div class="v">${s.coverage}%</div></div>`).join('');
+    V('dash').innerHTML = pageHead('Operação · Tempo real', 'Command Center', 'dados reais da base de dados') +
+      `<div class="grid g4" style="margin-bottom:16px">${kpiHtml}</div>
+       <div class="grid g23">
+         <div class="panel"><div class="panel-h"><h3>Atividade de fraude</h3><span class="tag">FEED · TX RECENTES</span></div>
+           <div class="feed">${feed}</div></div>
+         <div class="panel"><div class="panel-h"><h3>Postura defensiva</h3></div>${gauge(k.overall)}
+           <div style="margin-top:14px">${bars}</div></div>
+       </div>
+       <div class="note">Arquitetura · <b>HIDEN</b> (CTI/IOCs) → <b>Fraud Hunter</b> (deteção/decisão) → <b>SOC Xpert</b> (casos).</div>`;
+  } catch (e) { errBox('dash', e); }
+}
+
+async function loadKC() {
+  try {
+    const k = await api('/api/killchain'); STATE.kc = k.stages;
+    const flow = k.stages.map((s, i) => `
+      <div class="kc-node" tabindex="0" data-kc="${i}" onclick="selKC(${i})" onkeydown="if(event.key==='Enter')selKC(${i})">
+        <div class="n">FASE ${s.stage}</div><div class="nm">${s.name}</div>
+        <div class="kc-bar"><i style="width:${s.coverage}%;background:${s.coverage >= 80 ? 'var(--green)' : s.coverage >= 65 ? 'var(--cyan)' : 'var(--amber)'}"></i></div>
+        <div class="cov"><span>cobertura</span><span>${s.coverage}%</span></div>
+        ${i < k.stages.length - 1 ? '<div class="arrow">▶</div>' : ''}
+      </div>`).join('');
+    V('kc').innerHTML = pageHead('Modelo operacional · Interceção por fase', 'Fraud Kill Chain', 'global ' + k.overall + '%') +
+      `<div class="panel kc-wrap"><div class="panel-h"><h3>Cadeia de ataque de fraude</h3><span class="tag">SELECIONE UMA FASE</span></div>
+        <div class="kc-scan"></div><div class="kc-flow">${flow}</div>
+        <div class="shiftleft"><span>SHIFT-LEFT · detetar mais cedo = menor perda</span><span class="ar"></span><span>◄ DESLOCAR DETEÇÃO</span></div>
+      </div><div class="panel kc-detail" id="kcDetail" style="margin-top:16px"></div>`;
+    selKC(0);
+  } catch (e) { errBox('kc', e); }
+}
+function selKC(i) {
+  if (!STATE.kc) return;
+  document.querySelectorAll('#v-kc .kc-node').forEach((n, k) => n.classList.toggle('sel', k === i));
+  const s = STATE.kc[i];
+  const rules = (s.rules || []).map(r => `<span class="pill p-info" style="margin:2px 4px 2px 0">${r}</span>`).join('');
+  document.getElementById('kcDetail').innerHTML = `
+    <h4>FASE ${s.stage} — ${s.name}</h4>
+    <div class="d">Cobertura: <b style="color:${s.coverage >= 80 ? 'var(--green)' : 'var(--amber)'}">${s.coverage}%</b>
+      · ${s.active_rules}/${s.total_rules} regra(s) ativa(s)</div>
+    <div class="col2">
+      <div><p class="subh">Táticas do fraudador</p><ul class="lst">${(s.tactics || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>
+      <div><p class="subh">Controlos de deteção</p><ul class="lst ctrl">${(s.controls || []).map(c => `<li>${esc(c)}</li>`).join('')}</ul></div>
+    </div>
+    <p class="subh" style="margin-top:16px">Regras associadas</p>${rules || '<span class="muted">Sem regras dedicadas.</span>'}`;
+}
+
+function txEvaluator() {
+  const opts = Object.keys(GEOS).map(g => `<option data-lat="${GEOS[g][0]}" data-lng="${GEOS[g][1]}">${g}</option>`).join('');
+  return `<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Avaliador de transações</h3><span class="tag">MOTOR AO VIVO</span></div>
+    <div class="grid g3" style="gap:12px">
+      <div><label>Conta</label><input id="f_acc" value="AO-4471"></div>
+      <div><label>Beneficiário</label><input id="f_ben" value="AO-NEW-77"></div>
+      <div><label>Montante (Kz)</label><input id="f_amt" type="number" value="4250000"></div>
+      <div><label>Dispositivo</label><input id="f_dev" value="dev-novo-99"></div>
+      <div><label>Geolocalização</label><select id="f_geo">${opts}</select></div>
+      <div><label>Score biometria (0-100)</label><input id="f_bio" type="number" value="35"></div>
+    </div>
+    <div class="grid g3" style="gap:12px;margin-top:12px;align-items:center">
+      <label class="chk"><input type="checkbox" id="f_sca"> SCA / 3DS válido</label>
+      <label class="chk"><input type="checkbox" id="f_chg"> IBAN/contacto alterado &lt;24h</label>
+      <button class="btn" onclick="evaluate()">Avaliar transação</button>
+    </div>
+    <div class="result" id="result"></div></div>`;
+}
+async function loadTX() {
+  try {
+    const [d, ts] = await Promise.all([api('/api/dashboard'), api('/api/transactions?limit=20')]);
+    const kpi = `<div class="grid g4" style="margin-bottom:16px">
+      <div class="panel kpi"><div class="lbl">Analisadas (24h)</div><div class="val c">${d.analyzed_24h}</div><div class="delta">motor de regras + ML</div></div>
+      <div class="panel kpi"><div class="lbl">Bloqueadas</div><div class="val r">${d.blocked_24h}</div><div class="delta">perda evitada ${KZ(d.prevented_amount)}</div></div>
+      <div class="panel kpi"><div class="lbl">Em revisão / 3DS</div><div class="val a">${d.review_24h}</div><div class="delta">fila do analista</div></div>
+      <div class="panel kpi"><div class="lbl">Alertas</div><div class="val">${d.alerts_24h}</div><div class="delta">não-aprovadas</div></div></div>`;
+    const rows = ts.map(t => `<tr>
+      <td class="mono">${esc(t.id)}</td><td class="mono">${esc(t.account_id)}</td><td class="mono">${esc(t.beneficiary) || '—'}</td>
+      <td class="amt">${KZ(t.amount)}</td><td>${esc(t.channel) || '—'}</td>
+      <td><span class="pill ${riskClass(t.score)}">${t.score} · ${riskWord(t.score)}</span></td>
+      <td><span class="pill ${decClass(t.decision)}">${decPT[t.decision] || t.decision}</span></td>
+      <td>${(t.fired || []).map(f => `<span class="pill p-ghost" style="margin:1px">${f}</span>`).join('') || '<span class="muted">—</span>'}</td>
+    </tr>`).join('');
+    V('tx').innerHTML = pageHead('Deteção · Abuso / Execução (Fase 6)', 'Monitorização de Transações', 'motor: regras + scoring · 3DS/SCA') +
+      kpi + txEvaluator() +
+      `<div class="panel"><div class="panel-h"><h3>Fluxo de decisão</h3><span class="tag">DA BASE DE DADOS</span></div>
+        <table><thead><tr><th>ID</th><th>Conta</th><th>Destino</th><th>Montante</th><th>Canal</th><th>Score</th><th>Decisão</th><th>Regras</th></tr></thead>
+        <tbody>${rows || '<tr><td colspan="8" class="muted">Sem transações.</td></tr>'}</tbody></table></div>`;
+  } catch (e) { errBox('tx', e); }
+}
+async function evaluate() {
+  const g = document.getElementById('f_geo').selectedOptions[0];
+  const body = {
+    account_id: document.getElementById('f_acc').value.trim(),
+    beneficiary: document.getElementById('f_ben').value.trim() || null,
+    amount: parseFloat(document.getElementById('f_amt').value) || 0,
+    channel: 'Transf. instantânea', direction: 'out',
+    device_id: document.getElementById('f_dev').value.trim() || null,
+    geo: g.text, lat: parseFloat(g.dataset.lat), lng: parseFloat(g.dataset.lng),
+    behavior_score: parseInt(document.getElementById('f_bio').value),
+    sca_passed: document.getElementById('f_sca').checked,
+    detail_changed: document.getElementById('f_chg').checked,
+  };
+  const box = document.getElementById('result');
+  try {
+    const res = await api('/api/transactions/evaluate', { method: 'POST', body: JSON.stringify(body) });
+    box.classList.add('show');
+    box.innerHTML = `<div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <div class="dec" style="color:${riskColor(res.score)}">${decPT[res.decision]}</div>
+        <span class="pill ${riskClass(res.score)}">SCORE ${res.score}/100</span>
+        <span class="mono muted" style="margin-left:auto">${res.transaction_id}</span></div>
+      <div class="mono muted" style="margin:9px 0 10px">${esc(res.reason)}</div>
+      ${res.fired.length ? res.fired.map(f => `<span class="pill ${sevPill[f.weight >= 40 ? 'crit' : f.weight >= 24 ? 'high' : 'med']}" style="margin:2px 4px 2px 0">${f.id} · ${esc(f.name)} (+${f.weight})</span>`).join('') : '<span class="muted">Nenhuma regra acionada.</span>'}`;
+    loadTX();
+  } catch (e) { box.classList.add('show'); box.innerHTML = `<span style="color:var(--red)">Erro: ${esc(e.message)}</span>`; }
+}
+
+async function loadRules() {
+  try {
+    const rs = await api('/api/rules');
+    const active = rs.filter(r => r.enabled).length;
+    const rows = rs.map(r => `<tr>
+      <td class="mono">${r.id}</td><td>${esc(r.name)}</td>
+      <td><span class="pill p-info">F${r.stage}</span></td><td class="mono">${esc(r.type)}</td>
+      <td><span class="pill ${sevPill[r.sev]}">${r.sev === 'crit' ? 'CRÍTICA' : r.sev === 'high' ? 'ALTA' : 'MÉDIA'}</span></td>
+      <td class="mono">${r.hits}</td>
+      <td><div class="tg ${r.enabled ? 'on' : ''}" onclick="toggleRule('${r.id}',this)"><i></i></div></td>
+    </tr>`).join('');
+    V('rules').innerHTML = pageHead('Deteção · Motor de decisão', 'Motor de Regras', active + '/' + rs.length + ' regras ativas') +
+      `<div class="panel"><div class="panel-h"><h3>Biblioteca de regras</h3><span class="tag">F = FASE · TOGGLE PERSISTE</span></div>
+        <table><thead><tr><th>ID</th><th>Regra</th><th>Fase</th><th>Tipo</th><th>Severidade</th><th>Disparos</th><th>Estado</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+       <div class="note">Cada regra está mapeada a uma fase da kill chain — ligar/desligar recalcula a cobertura global (visível no Command Center).</div>`;
+  } catch (e) { errBox('rules', e); }
+}
+async function toggleRule(id, el) {
+  try { const r = await api('/api/rules/' + id + '/toggle', { method: 'PATCH' }); el.classList.toggle('on', r.enabled); loadDash(); }
+  catch (e) { alert('Falha ao alterar regra: ' + e.message); }
+}
+
+function loadATO() {
+  const rows = ATO.map(a => `<tr>
+    <td class="mono">${a.sess}</td><td class="mono">${a.acc}</td><td>${a.dvc}</td>
+    <td>${a.geo}</td><td>${a.travel}</td><td>${a.bio}</td><td>${a.mfa}</td>
+    <td><span class="pill ${riskClass(a.score)}">${a.score}</span></td></tr>`).join('');
+  const sig = ATO_SIGNALS.map(s => `<div class="bar-row"><div class="lab">${s[0]}</div>
+    <div class="bar-track"><i style="width:${s[2]}%;background:${s[2] >= 85 ? 'var(--green)' : 'var(--cyan)'}"></i></div>
+    <div class="v">${s[2]}%</div></div>`).join('');
+  V('ato').innerHTML = pageHead('Deteção · Comprometimento (Fase 4–5)', 'Account Takeover', 'sinais por sessão · ilustrativo') +
+    `<div class="grid g23">
+      <div class="panel"><div class="panel-h"><h3>Sessões sob análise</h3><span class="tag">RISCO POR SESSÃO</span></div>
+        <table><thead><tr><th>Sessão</th><th>Conta</th><th>Dispositivo</th><th>Geo</th><th>Viagem</th><th>Biometria</th><th>MFA</th><th>Risco</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>
+      <div class="panel"><div class="panel-h"><h3>Maturidade de sinais</h3></div>${sig}
+        <div class="note" style="margin-top:16px">Conteúdo ilustrativo — a telemetria de sessão liga-se aqui em produção.</div></div>
+    </div>`;
+}
+
+async function loadNet() {
+  try {
+    STATE.net = await api('/api/network');
+    V('net').innerHTML = pageHead('Deteção · Monetização & Branqueamento (Fase 7–8)', 'Rede de Mulas', 'graph analytics · fluxo de fundos') +
+      `<div class="grid g23">
+        <div class="panel"><div class="panel-h"><h3>Anel de mulas — fluxo de fundos</h3><span class="tag">CLIQUE NUM NÓ</span></div>
+          <svg id="net"></svg>
+          <div class="net-legend">
+            <span><i style="background:#2be5a0"></i>Vítima</span><span><i style="background:#ffb020"></i>Mula</span>
+            <span><i style="background:#ff7a1a"></i>Coletor</span><span><i style="background:#ff3b5c"></i>Cash-out</span></div></div>
+        <div class="panel"><div class="panel-h"><h3>Detalhe</h3></div>
+          <div class="node-info" id="nodeInfo">Selecione um nó no grafo para ver o detalhe e o risco.</div>
+          <p class="subh" style="margin-top:16px">Indicadores do anel</p>
+          <div class="bar-row"><div class="lab">Risco do anel</div><div class="bar-track"><i style="width:93%;background:var(--red)"></i></div><div class="v">93</div></div>
+          <div class="bar-row"><div class="lab">Volume movimentado</div><div class="bar-track"><i style="width:78%;background:var(--orange)"></i></div><div class="v">17,3M</div></div>
+          <div class="bar-row"><div class="lab">Velocity reenvio</div><div class="bar-track"><i style="width:88%;background:var(--amber)"></i></div><div class="v">&lt;1h</div></div>
+          <div class="note" style="margin-top:14px">Regras <b>R-009</b> e <b>R-010</b> ativas neste padrão.</div></div>
+      </div>`;
+    setTimeout(drawNet, 60);
+  } catch (e) { errBox('net', e); }
+}
+function drawNet() {
+  if (!STATE.net) return;
+  const svg = d3.select('#net'); svg.selectAll('*').remove();
+  const W = svg.node().clientWidth || 640, H = 430; svg.attr('viewBox', `0 0 ${W} ${H}`);
+  const color = { victim: '#2be5a0', mule: '#ffb020', collector: '#ff7a1a', cashout: '#ff3b5c' };
+  const nodes = STATE.net.nodes.map(d => Object.assign({}, d));
+  const links = STATE.net.links.map(d => Object.assign({}, d));
+  const sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(95))
+    .force('charge', d3.forceManyBody().strength(-340))
+    .force('center', d3.forceCenter(W / 2, H / 2))
+    .force('collide', d3.forceCollide(34));
+  svg.append('defs').append('marker').attr('id', 'arr').attr('viewBox', '0 -5 10 10').attr('refX', 26)
+    .attr('markerWidth', 7).attr('markerHeight', 7).attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', '#1c4450');
+  const link = svg.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke', '#1c4450').attr('stroke-width', d => 1 + Math.log10((d.amount || 100000) / 100000)).attr('marker-end', 'url(#arr)').attr('opacity', .8);
+  const node = svg.append('g').selectAll('g').data(nodes).join('g').style('cursor', 'pointer')
+    .call(d3.drag().on('start', (e, d) => { if (!e.active) sim.alphaTarget(.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+      .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }))
+    .on('click', (e, d) => {
+      document.getElementById('nodeInfo').innerHTML =
+        `<b style="color:${color[d.type]}">${esc(d.label)}</b><br>Tipo: ${({ victim: 'Vítima', mule: 'Conta-mula', collector: 'Coletor', cashout: 'Ponto de cash-out' })[d.type]}<br>` +
+        `Risco: <span style="color:${riskColor(d.risk)}">${d.risk} · ${riskWord(d.risk)}</span>`;
+    });
+  node.append('circle').attr('r', d => d.type === 'collector' || d.type === 'cashout' ? 15 : 12)
+    .attr('fill', '#0a151b').attr('stroke', d => color[d.type]).attr('stroke-width', 2.5)
+    .style('filter', d => `drop-shadow(0 0 6px ${color[d.type]})`);
+  node.append('text').text(d => d.label).attr('x', 0).attr('y', 26).attr('text-anchor', 'middle')
+    .attr('fill', '#6f9aa6').attr('font-size', 10).attr('font-family', 'Share Tech Mono');
+  sim.on('tick', () => {
+    link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    node.attr('transform', d => `translate(${d.x},${d.y})`);
+  });
+}
+
+async function loadAML() {
+  try {
+    const al = await api('/api/aml');
+    const open = al.length, str = al.filter(a => /STR/i.test(a.status)).length;
+    const rows = al.map(a => `<tr>
+      <td class="mono">${a.id}</td><td class="mono">${esc(a.account_id)}</td><td>${esc(a.pattern)}</td>
+      <td><span class="pill p-info">${a.stage}</span></td><td class="amt">${KZ(a.amount)}</td>
+      <td><span class="pill ${sevPill[a.severity] || 'p-ghost'}">${esc(a.status)}</span></td></tr>`).join('');
+    const pep = PEP.map(p => `<tr><td class="mono">${p.ref}</td><td>${p.cat}</td>
+      <td><span class="pill ${p.match === 'Forte' ? 'p-high' : 'p-med'}">${p.match}</span></td>
+      <td>${p.edd}</td><td><span class="pill p-info">${p.status}</span></td></tr>`).join('');
+    V('aml').innerHTML = pageHead('Conformidade · Branqueamento de capitais', 'AML / CFT', 'FATF · Lei 5/20 · UIF') +
+      `<div class="grid g4" style="margin-bottom:16px">
+        <div class="panel kpi"><div class="lbl">Alertas AML</div><div class="val a">${open}</div><div class="delta">placement/layering/integration</div></div>
+        <div class="panel kpi"><div class="lbl">Ligados a STR</div><div class="val c">${str}</div><div class="delta">comunicação à UIF</div></div>
+        <div class="panel kpi"><div class="lbl">PEP em revisão</div><div class="val">${PEP.length}</div><div class="delta">EDD obrigatória</div></div>
+        <div class="panel kpi"><div class="lbl">Prazo médio STR</div><div class="val g">2,1d</div><div class="delta">dentro do limite</div></div></div>
+       <div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Alertas de branqueamento</h3><span class="tag">PLACEMENT · LAYERING · INTEGRATION</span></div>
+         <table><thead><tr><th>ID</th><th>Cliente</th><th>Padrão</th><th>Fase</th><th>Montante</th><th>Estado</th></tr></thead><tbody>${rows}</tbody></table></div>
+       <div class="panel"><div class="panel-h"><h3>Rastreio de PEPs · KYC / CDD / EDD</h3><span class="tag">DILIGÊNCIA REFORÇADA</span></div>
+         <table><thead><tr><th>Referência</th><th>Categoria</th><th>Correspondência</th><th>EDD</th><th>Estado</th></tr></thead><tbody>${pep}</tbody></table>
+         <div class="note">Referências de PEP anonimizadas. EDD obrigatória antes da aprovação, conforme FATF e Lei n.º 5/20.</div></div>`;
+  } catch (e) { errBox('aml', e); }
+}
+
+async function loadCases() {
+  try {
+    const cs = await api('/api/cases');
+    const sev = { crit: 'p-crit', high: 'p-high', med: 'p-med' };
+    const steps = LIFE.map((s, i) => `<div class="kc-node" style="cursor:default;flex:1">
+      <div class="n">${String(i + 1).padStart(2, '0')}</div><div class="nm" style="min-height:auto">${s}</div></div>`).join('');
+    const rows = cs.map(c => `<tr>
+      <td class="mono">${c.id}</td><td>${esc(c.title)}</td><td class="mono">${esc(c.classification)}</td>
+      <td><span class="pill p-info">${esc(c.lifecycle)}</span></td>
+      <td><span class="pill ${sev[c.severity] || 'p-ghost'}">${c.severity === 'crit' ? 'CRÍTICO' : c.severity === 'high' ? 'ALTO' : 'MÉDIO'}</span></td>
+      <td>${esc(c.owner) || '—'}</td><td class="mono">${esc(c.linked) || '—'}</td></tr>`).join('');
+    V('cases').innerHTML = pageHead('Conformidade · Investigação', 'Gestão de Casos', 'ACFE Fraud Tree · ciclo de vida') +
+      `<div class="panel" style="margin-bottom:16px"><div class="panel-h"><h3>Fraud Management Lifecycle</h3><span class="tag">WILHELM · 8 FASES</span></div>
+        <div class="kc-flow">${steps}</div></div>
+       <div class="panel"><div class="panel-h"><h3>Casos ativos</h3><span class="tag">→ ESCALA PARA SOC XPERT</span></div>
+        <table><thead><tr><th>Caso</th><th>Título</th><th>Classificação</th><th>Fase do ciclo</th><th>Severidade</th><th>Responsável</th><th>Ligação</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+        <div class="note">Classificação pela <b>ACFE Fraud Tree</b>; resposta inclui o processo <b>Financial Fraud Kill Chain</b> (recall/reversão).</div></div>`;
+  } catch (e) { errBox('cases', e); }
+}
+
+async function loadTI() {
+  try {
+    const t = await api('/api/threat');
+    const sev = { crit: 'p-crit', high: 'p-high', med: 'p-med' };
+    const sw = r => r === 'crit' ? 'CRÍTICO' : r === 'high' ? 'ELEVADO' : 'MÉDIO';
+    const dom = (t.domain || []).map(d => `<tr><td class="mono">${esc(d.value)}</td><td>${esc(d.type)}</td><td>${esc(d.first_seen)}</td>
+      <td><span class="pill ${sev[d.risk] || 'p-ghost'}">${sw(d.risk)}</span></td></tr>`).join('');
+    const leaks = (t.leak || []).map(l => `<tr><td>${esc(l.value)}</td><td>${esc(l.status)}</td>
+      <td><span class="pill ${sev[l.risk] || 'p-ghost'}">${sw(l.risk)}</span></td></tr>`).join('');
+    const brand = (t.brand || []).map(b => `<tr><td>${esc(b.value)}</td><td><span class="pill p-info">${esc(b.status)}</span></td></tr>`).join('');
+    V('ti').innerHTML = pageHead('Deteção · Reconhecimento (Fase 1–3)', 'Threat Intelligence', 'exposição própria · herdado do HIDEN') +
+      `<div class="grid g2" style="margin-bottom:16px">
+        <div class="panel"><div class="panel-h"><h3>Domínios maliciosos</h3><span class="tag">LOOKALIKE · TYPOSQUAT · PHISHING</span></div>
+          <table><thead><tr><th>Domínio</th><th>Tipo</th><th>Detetado</th><th>Risco</th></tr></thead><tbody>${dom}</tbody></table></div>
+        <div class="panel"><div class="panel-h"><h3>Fugas de credenciais</h3><span class="tag">EXPOSIÇÃO DA ORGANIZAÇÃO</span></div>
+          <table><thead><tr><th>Fonte</th><th>Estado</th><th>Risco</th></tr></thead><tbody>${leaks}</tbody></table></div></div>
+       <div class="panel"><div class="panel-h"><h3>Monitorização de marca</h3><span class="tag">PERSONIFICAÇÃO</span></div>
+        <table><thead><tr><th>Ocorrência</th><th>Estado</th></tr></thead><tbody>${brand}</tbody></table>
+        <div class="note">Foco na <b>exposição da própria organização</b> — sem vigilância de indivíduos. Alimenta as fases 1–3.</div></div>`;
+  } catch (e) { errBox('ti', e); }
+}
+
+function loadFW() {
+  const cards = FRAMEWORKS.map(f => `<div class="fw-card">
+    <div class="cat">${f.cat}</div><h4>${f.name}</h4><p>${f.desc}</p>
+    <div class="map">Implementação · <b>${f.map}</b></div></div>`).join('');
+  V('fw').innerHTML = pageHead('Conhecimento · Alinhamento de frameworks', 'Biblioteca de Frameworks', FRAMEWORKS.length + ' frameworks') +
+    `<div class="grid g3">${cards}</div>
+     <div class="note">Cada framework está ligado a um módulo operacional — deteção, conformidade e alinhamento metodológico.</div>`;
+}
+
+const LOADERS = { dash: loadDash, kc: loadKC, tx: loadTX, rules: loadRules, ato: loadATO, net: loadNet, aml: loadAML, cases: loadCases, ti: loadTI, fw: loadFW };
+
+/* ====================== BUILD + BOOT ====================== */
+function build() {
+  buildNav();
+  const main = document.getElementById('main');
+  Object.keys(LOADERS).forEach(id => {
+    const s = document.createElement('section'); s.className = 'view'; s.id = 'v-' + id;
+    s.innerHTML = pageHead('a carregar…', TITLES[id], '');
+    main.appendChild(s);
+  });
+  go('dash');
+}
+
+const bootMsgs = ['a inicializar motor HIDEN…', 'a contactar a API…', 'a sincronizar regras e cobertura…', 'a ligar ao SOC Xpert…', 'Fraud Hunter pronto.'];
+let bi = 0;
+const bt = setInterval(() => { bi++; if (bi < bootMsgs.length) { const el = document.getElementById('bootLine'); if (el) el.textContent = bootMsgs[bi]; } }, 300);
+window.addEventListener('load', () => {
+  build();
+  setTimeout(() => { clearInterval(bt); const b = document.getElementById('boot'); if (b) b.classList.add('gone'); }, 1700);
+});
+
+</script>
+</body>
+</html>
